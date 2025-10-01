@@ -28,7 +28,7 @@ class FolderScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.brown.withOpacity(0.1),
+              color: Colors.brown.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -45,7 +45,7 @@ class FolderScreen extends StatelessWidget {
                   color: Colors.brown[50],
                   border: Border(
                     bottom: BorderSide(
-                      color: Colors.brown.withOpacity(0.1),
+                      color: Colors.brown.withValues(alpha: 0.1),
                       width: 1,
                     ),
                   ),
@@ -82,12 +82,12 @@ class FolderScreen extends StatelessWidget {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.brown.withOpacity(0.1),
+                          color: Colors.brown.withValues(alpha: 0.1),
                           width: 1,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.brown.withOpacity(0.05),
+                            color: Colors.brown.withValues(alpha: 0.05),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -148,7 +148,7 @@ class FolderScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.brown.withOpacity(0.3),
+              color: Colors.brown.withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),

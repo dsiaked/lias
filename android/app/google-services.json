@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1026229447943",
+    "project_id": "lias-4336f",
+    "storage_bucket": "lias-4336f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1026229447943:android:c65b09fdcf64cab32729a2",
+        "android_client_info": {
+          "package_name": "com.example.lias"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCkmv5ndyqbfRVlsuT5YiFMkdXd5LqD9V8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
