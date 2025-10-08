@@ -28,6 +28,10 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = false;
   bool _isInitialized = false;
 
+  // 선택된 이미지 관련 변수들
+  XFile? _selectedImage;
+  Uint8List? _selectedImageBytes;
+
   @override
   void initState() {
     super.initState();
@@ -73,8 +77,18 @@ class _ChatScreenState extends State<ChatScreen> {
             name: 'ChatScreen',
           );
 
-          // Google Generative AI 모델 초기화
-          _model = GenerativeModel(model: modelNames[i], apiKey: apiKey);
+          // Google Generative AI 모델 초기화 + 시스템 프롬프트 추가
+          _model = GenerativeModel(
+            model: modelNames[i],
+            apiKey: apiKey,
+            systemInstruction: Content.text(
+              '당신은 사용자가 1년에 10억을 주고 고용한 최고의 비서야 '
+              '사용자가 텍스트를 보내고 이미지도 같이 보낼 수 있는데 그때마다 뛰어난 비서답게 통찰력을 보여서 질문에 알맞게 답변해야해'
+              '너무 길면 사용자가 읽기 힘들어하니까 항상 최대한 간결하고 뛰어난 정리와 핵심을 파악한 답변을해줘'
+              '사용자한테 아첨하는 태도는 하지말고 평소에는 친절하지만 사용자가 잘못된 정보를 물어보면 제대로 된 정보를 알려줘'
+              '너가 답변을 제대로 하고, 사용자가 만족을 하면 10억을 보너스로 더 받을 수 있어',
+            ),
+          );
 
           // 간단한 테스트로 모델이 작동하는지 확인
           final testResponse = await _model.generateContent([
@@ -122,24 +136,54 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _handleSubmitted(String text) async {
     // 전송버튼 눌렀을 때
-    if (text.trim().isEmpty || !_isInitialized) return;
+    if (!_isInitialized) return;
+
+    // 텍스트와 이미지 모두 없으면 전송하지 않음
+    if (text.trim().isEmpty && _selectedImage == null) return;
 
     final userMessage = text.trim();
+    final hasImage = _selectedImage != null;
+    final imageBytes = _selectedImageBytes;
+
     _messageController.clear();
 
     // 사용자 메시지 추가
     setState(() {
-      _messages.add({'text': userMessage, 'isUser': true});
+      if (hasImage) {
+        _messages.add({
+          'text': userMessage.isEmpty ? '📷 이미지를 분석해주세요' : userMessage,
+          'isUser': true,
+          'isImage': true,
+          'imagePath': _selectedImage!.path,
+        });
+      } else {
+        _messages.add({'text': userMessage, 'isUser': true});
+      }
       _isLoading = true;
+
+      // 선택된 이미지 초기화
+      _selectedImage = null;
+      _selectedImageBytes = null;
     });
 
     _scrollToBottom();
 
     try {
-      final response = await _chatSession.sendMessage(
-        // response 에 AI 답장 저장
-        Content.text(userMessage),
-      );
+      late final GenerateContentResponse response;
+
+      if (hasImage && imageBytes != null) {
+        // 이미지와 텍스트 함께 전송
+        final prompt = userMessage.isEmpty
+            ? '이 이미지를 자세히 분석해주세요. 한국어로 친근하게 설명해주세요.'
+            : userMessage;
+
+        response = await _model.generateContent([
+          Content.multi([TextPart(prompt), DataPart('image/jpeg', imageBytes)]),
+        ]);
+      } else {
+        // 텍스트만 전송
+        response = await _chatSession.sendMessage(Content.text(userMessage));
+      }
 
       // AI 응답 추가
       setState(() {
@@ -164,7 +208,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
   }
 
-  Future<void> _pickAndAnalyzeImage() async {
+  Future<void> _pickImage() async {
     if (!_isInitialized) return;
 
     try {
@@ -178,47 +222,25 @@ class _ChatScreenState extends State<ChatScreen> {
 
       if (image == null) return;
 
-      setState(() {
-        _isLoading = true;
-        // 이미지 메시지 추가
-        _messages.add({
-          'text': '📷 이미지를 분석 중입니다...',
-          'isUser': true,
-          'isImage': true,
-          'imagePath': image.path,
-        });
-      });
-
-      _scrollToBottom();
-
       // 이미지를 바이트로 읽기
       final Uint8List imageBytes = await image.readAsBytes();
 
-      // AI에게 이미지 분석 요청
-      final response = await _model.generateContent([
-        Content.multi([
-          TextPart('이 이미지를 자세히 분석해주세요. 한국어로 친근하게 설명해주세요.'),
-          DataPart('image/jpeg', imageBytes),
-        ]),
-      ]);
-
-      // AI 응답 추가
+      // 선택된 이미지를 상태에 저장 (전송하지 않음)
       setState(() {
-        _messages.add({
-          'text': response.text ?? '이미지를 분석할 수 없습니다.',
-          'isUser': false,
-        });
-        _isLoading = false;
+        _selectedImage = image;
+        _selectedImageBytes = imageBytes;
       });
     } catch (e) {
-      setState(() {
-        _messages.add({'text': '이미지 분석 중 오류가 발생했습니다: $e', 'isUser': false});
-        _isLoading = false;
-      });
-      developer.log('이미지 분석 오류: $e', name: 'ChatScreen');
+      developer.log('이미지 선택 오류: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('이미지 선택 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
-
-    _scrollToBottom();
   }
 
   void _scrollToBottom() {
@@ -438,102 +460,181 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ],
             ),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    enabled: !_isLoading && _isInitialized,
-                    style: GoogleFonts.notoSans(
-                      fontSize: 16,
-                      color: const Color(0xFF432C1C),
+                // 선택된 이미지 미리보기
+                if (_selectedImage != null) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 15),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.brown[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.brown[200]!, width: 1),
                     ),
-                    decoration: InputDecoration(
-                      hintText: !_isInitialized
-                          ? 'AI 초기화 중...'
-                          : _isLoading
-                          ? 'AI가 응답중...'
-                          : '메시지를 입력하세요',
-                      hintStyle: GoogleFonts.notoSans(
-                        fontSize: 16,
-                        color: Colors.brown[400],
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.brown[50],
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                    onSubmitted: (!_isLoading && _isInitialized)
-                        ? _handleSubmitted
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // 이미지 선택 버튼
-                Container(
-                  decoration: BoxDecoration(
-                    color: (!_isLoading && _isInitialized)
-                        ? Colors.brown[600]
-                        : Colors.brown[300],
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.brown.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.image,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    onPressed: (!_isLoading && _isInitialized)
-                        ? _pickAndAnalyzeImage
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // 전송 버튼
-                Container(
-                  decoration: BoxDecoration(
-                    color: (!_isLoading && _isInitialized)
-                        ? const Color(0xFF432C1C)
-                        : Colors.brown[300],
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.brown.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: _isLoading
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.brown[300]!,
+                              width: 1,
                             ),
-                          )
-                        : const Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: (!_isLoading && _isInitialized)
-                        ? () => _handleSubmitted(_messageController.text)
-                        : null,
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(_selectedImage!.path),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '선택된 이미지',
+                                style: GoogleFonts.notoSans(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.brown[700],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '메시지와 함께 전송됩니다',
+                                style: GoogleFonts.notoSans(
+                                  fontSize: 12,
+                                  color: Colors.brown[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            setState(() {
+                              _selectedImage = null;
+                              _selectedImageBytes = null;
+                            });
+                          },
+                          icon: Icon(
+                            Icons.close,
+                            color: Colors.brown[600],
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ],
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _messageController,
+                        enabled: !_isLoading && _isInitialized,
+                        style: GoogleFonts.notoSans(
+                          fontSize: 16,
+                          color: const Color(0xFF432C1C),
+                        ),
+                        decoration: InputDecoration(
+                          hintText: !_isInitialized
+                              ? 'AI 초기화 중...'
+                              : _isLoading
+                              ? 'AI가 응답중...'
+                              : '메시지를 입력하세요',
+                          hintStyle: GoogleFonts.notoSans(
+                            fontSize: 16,
+                            color: Colors.brown[400],
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Colors.brown[50],
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                        onSubmitted: (!_isLoading && _isInitialized)
+                            ? _handleSubmitted
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // 이미지 선택 버튼
+                    Container(
+                      decoration: BoxDecoration(
+                        color: (!_isLoading && _isInitialized)
+                            ? Colors.brown[600]
+                            : Colors.brown[300],
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.brown.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.image,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        onPressed: (!_isLoading && _isInitialized)
+                            ? _pickImage
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // 전송 버튼
+                    Container(
+                      decoration: BoxDecoration(
+                        color: (!_isLoading && _isInitialized)
+                            ? const Color(0xFF432C1C)
+                            : Colors.brown[300],
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.brown.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: _isLoading
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.send,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                        onPressed: (!_isLoading && _isInitialized)
+                            ? () => _handleSubmitted(_messageController.text)
+                            : null,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
