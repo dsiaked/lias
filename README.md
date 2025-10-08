@@ -19,4 +19,4 @@ samples, guidance on mobile development, and a full API reference.
 1. https://www.youtube.com/watch?si=5wf8dSmg9gg7Yypa&v=aBNZvkj-YpE&feature=youtu.be 
 2. https://firebase.google.com/docs/ai-logic?hl=ko
 3. https://firebase.google.com/docs/ai-logic/get-started?hl=ko&api=dev
-=> FireBase 에서 AI API 넣고 AI를 채팅이랑 연동하는데 도움이 됨 
+=> FireBase 에서 AI API 넣고 AI를 채팅이랑 연동하는데 도움이 됨

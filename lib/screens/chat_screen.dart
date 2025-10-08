@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:image_picker/image_picker.dart';
 import 'dart:developer' as developer;
+import 'dart:io';
+import 'dart:typed_data';
 
 class ChatScreen extends StatefulWidget {
   final String userName;
@@ -18,6 +21,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<Map<String, dynamic>> _messages = [];
   final ScrollController _scrollController =
       ScrollController(); // 채팅시 스크롤 내릴 수 있게
+  final ImagePicker _picker = ImagePicker();
 
   late GenerativeModel _model;
   late ChatSession _chatSession;
@@ -40,6 +44,7 @@ class _ChatScreenState extends State<ChatScreen> {
     ];
 
     try {
+      // 여러 모델을 시도해봄, 된다면 setState로 _isInitialized true , 채팅 시작
       // .env 파일에서 API 키 가져오기, env 에 숨겨둠
       final apiKey = dotenv.env['GEMINI_API_KEY'];
 
@@ -116,6 +121,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _handleSubmitted(String text) async {
+    // 전송버튼 눌렀을 때
     if (text.trim().isEmpty || !_isInitialized) return;
 
     final userMessage = text.trim();
@@ -130,8 +136,8 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
 
     try {
-      // AI에게 메시지 전송
       final response = await _chatSession.sendMessage(
+        // response 에 AI 답장 저장
         Content.text(userMessage),
       );
 
@@ -158,7 +164,65 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
   }
 
+  Future<void> _pickAndAnalyzeImage() async {
+    if (!_isInitialized) return;
+
+    try {
+      // 갤러리에서 이미지 선택
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      setState(() {
+        _isLoading = true;
+        // 이미지 메시지 추가
+        _messages.add({
+          'text': '📷 이미지를 분석 중입니다...',
+          'isUser': true,
+          'isImage': true,
+          'imagePath': image.path,
+        });
+      });
+
+      _scrollToBottom();
+
+      // 이미지를 바이트로 읽기
+      final Uint8List imageBytes = await image.readAsBytes();
+
+      // AI에게 이미지 분석 요청
+      final response = await _model.generateContent([
+        Content.multi([
+          TextPart('이 이미지를 자세히 분석해주세요. 한국어로 친근하게 설명해주세요.'),
+          DataPart('image/jpeg', imageBytes),
+        ]),
+      ]);
+
+      // AI 응답 추가
+      setState(() {
+        _messages.add({
+          'text': response.text ?? '이미지를 분석할 수 없습니다.',
+          'isUser': false,
+        });
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _messages.add({'text': '이미지 분석 중 오류가 발생했습니다: $e', 'isUser': false});
+        _isLoading = false;
+      });
+      developer.log('이미지 분석 오류: $e', name: 'ChatScreen');
+    }
+
+    _scrollToBottom();
+  }
+
   void _scrollToBottom() {
+    // 채팅이 길어질 때 스크롤을 맨 아래로 내리는 코드
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
@@ -284,13 +348,40 @@ class _ChatScreenState extends State<ChatScreen> {
                                         ),
                                       ],
                                     ),
-                                    child: Text(
-                                      message['text'],
-                                      style: GoogleFonts.notoSans(
-                                        fontSize: 16,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        // 이미지가 있으면 표시
+                                        if (message['isImage'] == true &&
+                                            message['imagePath'] != null)
+                                          Container(
+                                            margin: const EdgeInsets.only(
+                                              bottom: 8,
+                                            ),
+                                            constraints: const BoxConstraints(
+                                              maxWidth: 200,
+                                              maxHeight: 200,
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Image.file(
+                                                File(message['imagePath']),
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                          ),
+                                        // 텍스트 메시지
+                                        Text(
+                                          message['text'],
+                                          style: GoogleFonts.notoSans(
+                                            fontSize: 16,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -383,7 +474,35 @@ class _ChatScreenState extends State<ChatScreen> {
                         : null,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
+                // 이미지 선택 버튼
+                Container(
+                  decoration: BoxDecoration(
+                    color: (!_isLoading && _isInitialized)
+                        ? Colors.brown[600]
+                        : Colors.brown[300],
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.brown.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.image,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    onPressed: (!_isLoading && _isInitialized)
+                        ? _pickAndAnalyzeImage
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 전송 버튼
                 Container(
                   decoration: BoxDecoration(
                     color: (!_isLoading && _isInitialized)
