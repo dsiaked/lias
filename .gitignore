@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# .gitignore 파일
+
+# 환경 변수 파일을 무시하도록 설정
+.env
