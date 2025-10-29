@@ -17,14 +17,14 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final TextEditingController _messageController = TextEditingController();
-  final List<Map<String, dynamic>> _messages = [];
+  final TextEditingController _messageController = TextEditingController(); // 사용자 입력 텍스트
+  final List<Map<String, dynamic>> _messages = []; // AI와의 대화 기록
   final ScrollController _scrollController =
       ScrollController(); // 채팅시 스크롤 내릴 수 있게
-  final ImagePicker _picker = ImagePicker();
+  final ImagePicker _picker = ImagePicker(); // 갤러리에서 이미지 가져옴
 
   late GenerativeModel _model;
-  late ChatSession _chatSession;
+  late ChatSession _chatSession; // 이전 대화 내용 기억하게 해줌
   bool _isLoading = false;
   bool _isInitialized = false;
 
