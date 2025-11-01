@@ -24,3 +24,5 @@ samples, guidance on mobile development, and a full API reference.
  # 주의해야할 점 
  1. 이후에 테마별로 정리를 하고, AI 프롬프트를 다르게 하는 상황이 되었을 때에 최적화를 잘 해줘야 할거같음 , 그러지 못하면 AI가 의미없이 생기면서 최적화가 많이 깨질 우려가 있음 , 잘 고민해서 배치와 위젯 상태를 잘 해야할 필요가 있음!
  
+2. 보안 잘 신경써주기! , GEMINI_API_KEY 하고, Firebase 자동 생성 키 포함된 파일 gitIgnore 에 제대로 포함 시켜주기!
+    + 데이터베이스 규칙 설정 까먹지 말고 잘 해주기

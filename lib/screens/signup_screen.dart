@@ -56,6 +56,7 @@ class _SignupScreenState extends State<SignupScreen> {
       // Firebase Authentication으로 사용자 생성
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
+            // 회원가입을 하는 부분에서는 여기가 다르다!
             email: _emailController.text.trim(),
             password: _passwordController.text,
           );
@@ -68,10 +69,10 @@ class _SignupScreenState extends State<SignupScreen> {
       developer.log('🔄 Firestore에 사용자 정보 저장 중...', name: 'SignupScreen');
 
       // Firestore에 사용자 기본 정보만 저장 (users 컬렉션)
-      final String uid = userCredential.user!.uid;
-
+      final String uid = userCredential.user!.uid; // 이 줄에 대한 자세한 설명은 메모장에!
+      //collection('users') 컬렉션에 uid 문서 생성 후 set 메서드로 데이터 저장
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'name': _nameController.text.trim(),
+        'name': _nameController.text.trim(), // 모든 데이터는 "키" 의 값으로 표시가 된다!
         'email': _emailController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
         'lastLoginAt': FieldValue.serverTimestamp(),

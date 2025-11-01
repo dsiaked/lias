@@ -5,6 +5,8 @@ import 'signup_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import '../firebase_options.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    // 화면이 사라질 때 메모리에서 필수로 해제를 해줘야함!
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -30,8 +33,32 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // 로그인 처리 함수
   Future<void> _handleLogin() async {
+    // Windows/Web 환경에서 Firebase Web API Key 누락 시 즉시 안내하고 중단
+    try {
+      final options = DefaultFirebaseOptions.currentPlatform;
+      final isDesktopWebLike =
+          kIsWeb || defaultTargetPlatform == TargetPlatform.windows;
+      if (isDesktopWebLike && (options.apiKey).startsWith('REPLACE_')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Firebase Web API 키가 설정되지 않아 로그인할 수 없습니다.\nFirebase 콘솔에서 Web 앱 API 키를 설정 후 다시 시도하세요.',
+                style: GoogleFonts.notoSans(),
+              ),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
+    } catch (_) {
+      // options 접근 실패 시에는 계속 진행 (다음 코드에서 정상적으로 예외 처리됨)
+    }
+
     if (!_formKey.currentState!.validate()) {
-      return;
+      return; // validator 에 있는 모든 조건(null을 반환해야함)을 통과하지 못하면 함수 종료
     }
 
     setState(() {
@@ -42,23 +69,28 @@ class _LoginScreenState extends State<LoginScreen> {
       // Firebase Authentication으로 로그인
       UserCredential userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(
+            // 로그인을 하는 부분에서는 signIn ~ 을 사용, 회원가입 부분에서는 다르다!!
             email: _emailController.text.trim(),
             password: _passwordController.text,
-          );
+          ); // 여기에서 인증을 완료함
 
-      // Firestore에서 사용자 정보 가져오기
+      // Firestore에서 사용자 정보 가져오기 , 그냥 데베에서 정보를 가져오는 것임, 로그인 인증 부분은 Auth 에서 끝났음!!
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(userCredential.user!.uid)
+          .doc(
+            userCredential.user!.uid,
+          ) // 로그인 성공 시 user!.uid를 뽑아 Firestore 에서 해당 유저의 문서를 가져옴!
           .get();
 
       String userName = '사용자';
       if (userDoc.exists) {
+        // 문서가 FireStore 에 존재한다면
         userName = (userDoc.data() as Map<String, dynamic>)['name'] ?? '사용자';
-      }
+      } // database 에 name 을 가져와 userName 변수에 저장, 만약 name 필드가 없다면 '사용자'로 기본값 설정
 
       if (mounted) {
-        // 홈 화면으로 이동
+        // mounted는 Navigator, ScaffoldMessenger 등 context 사용하는 작업을 할때 필수!, 현재 위치에 잘 머물러 있는지 체크해주는 함수이다!
+        // 홈 화면으로 이동, 이동중 사용자가 화면을 끄면 오류 발생, 이를 mounted 로 방지
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -110,6 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } finally {
+      // finally : try-catch 구문에서 예외 발생 여부와 상관없이 항상 실행되는 블록
       if (mounted) {
         setState(() {
           _isLoading = false;

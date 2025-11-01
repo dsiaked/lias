@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:async';
 
 class ChatScreen extends StatefulWidget {
   final String userName;
@@ -17,8 +18,9 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final TextEditingController _messageController = TextEditingController(); // 사용자 입력 텍스트
-  final List<Map<String, dynamic>> _messages = []; // AI와의 대화 기록
+  final TextEditingController _messageController =
+      TextEditingController(); // 사용자 입력 텍스트
+  final List<Map<String, dynamic>> _messages = []; // AI와의 대화 기록 저장
   final ScrollController _scrollController =
       ScrollController(); // 채팅시 스크롤 내릴 수 있게
   final ImagePicker _picker = ImagePicker(); // 갤러리에서 이미지 가져옴
@@ -60,7 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
         return;
       }
 
-      // API 키의 앞 부분만 로깅 (보안상 전체는 표시하지 않음), 필요하다고 하네요
+      // API 키의 앞 부분만 로그에 남김 (보안상 전체는 표시하지 않음)
       final maskedApiKey = apiKey.length > 10
           ? '${apiKey.substring(0, 10)}...'
           : '(너무 짧음)';
@@ -82,6 +84,7 @@ class _ChatScreenState extends State<ChatScreen> {
             model: modelNames[i],
             apiKey: apiKey,
             systemInstruction: Content.text(
+              // 핵심, 시스템 프롬프트, AI에게 하는 지시사항
               '당신은 사용자가 1년에 10억을 주고 고용한 최고의 비서야 '
               '사용자가 텍스트를 보내고 이미지도 같이 보낼 수 있는데 그때마다 뛰어난 비서답게 통찰력을 보여서 질문에 알맞게 답변해야해'
               '너무 길면 사용자가 읽기 힘들어하니까 항상 최대한 간결하고 뛰어난 정리와 핵심을 파악한 답변을해줘'
@@ -90,10 +93,10 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           );
 
-          // 간단한 테스트로 모델이 작동하는지 확인
-          final testResponse = await _model.generateContent([
-            Content.text('Hello'),
-          ]);
+          // 간단한 테스트로 모델이 작동하는지 확인 (타임아웃 보호)
+          final testResponse = await _model
+              .generateContent([Content.text('Hello')])
+              .timeout(const Duration(seconds: 6));
 
           if (testResponse.text != null) {
             _chatSession = _model.startChat();
@@ -112,11 +115,37 @@ class _ChatScreenState extends State<ChatScreen> {
             );
             return; // 성공하면 여기서 종료
           }
+        } on TimeoutException catch (_) {
+          developer.log('모델 ${modelNames[i]} 초기화 타임아웃', name: 'ChatScreen');
+          if (i == modelNames.length - 1) {
+            // 마지막 모델도 타임아웃이면 에러 메시지 표시하고 종료
+            if (mounted) {
+              setState(() {
+                _isInitialized = false;
+                _messages.add({
+                  'text': 'AI 초기화가 지연되고 있습니다. 네트워크 연결을 확인해주세요.',
+                  'isUser': false,
+                });
+              });
+            }
+            return;
+          }
+          continue;
         } catch (e) {
           developer.log('모델 ${modelNames[i]} 실패: $e', name: 'ChatScreen');
           if (i == modelNames.length - 1) {
-            // 모든 모델이 실패한 경우
-            rethrow;
+            // 모든 모델이 실패한 경우 - 안전하게 처리
+            if (mounted) {
+              setState(() {
+                _isInitialized = false;
+                _messages.add({
+                  'text':
+                      'AI 모델 연결에 실패했습니다. API 키를 확인해주세요.\n오류: ${e.toString()}',
+                  'isUser': false,
+                });
+              });
+            }
+            return;
           }
           // 다음 모델 시도
           continue;
@@ -124,11 +153,22 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } catch (e) {
       developer.log('Google Generative AI 초기화 오류: $e', name: 'ChatScreen');
-      _showErrorMessage('Google AI 서비스 연결에 문제가 있습니다. API 키와 네트워크를 확인해주세요: $e');
+      // mounted 체크 추가하여 안전하게 에러 메시지 표시
+      if (mounted) {
+        setState(() {
+          _isInitialized = false;
+          _messages.add({
+            'text':
+                'Google AI 서비스 연결에 문제가 있습니다.\nAPI 키와 네트워크를 확인해주세요.\n\n오류 상세: ${e.toString()}',
+            'isUser': false,
+          });
+        });
+      }
     }
   }
 
   void _showErrorMessage(String message) {
+    if (!mounted) return; // 위젯이 dispose된 경우 무시
     setState(() {
       _messages.add({'text': message, 'isUser': false});
     });
@@ -257,7 +297,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.transparent, // homeScreen 에 비쳐 보이도록 하여 이질감 없애기!
       appBar: AppBar(
         backgroundColor: const Color(0xFFFAF8F0),
         elevation: 0,
@@ -274,6 +314,7 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
+            // 채팅창 부분
             child: Container(
               margin: const EdgeInsets.all(20),
               decoration: BoxDecoration(
