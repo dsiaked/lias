@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'home_screen.dart';
 import 'signup_screen.dart';
+import 'welcome_onboarding_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -83,20 +84,41 @@ class _LoginScreenState extends State<LoginScreen> {
           .get();
 
       String userName = '사용자';
+      bool needsOnboarding = false;
+
       if (userDoc.exists) {
         // 문서가 FireStore 에 존재한다면
-        userName = (userDoc.data() as Map<String, dynamic>)['name'] ?? '사용자';
+        final data = userDoc.data() as Map<String, dynamic>;
+        userName = data['name'] ?? '사용자';
+
+        // 필수 정보(성별, 지역, 좋아하는 색깔) 중 하나라도 없으면 온보딩 필요
+        final gender = data['gender'];
+        final region = data['region'];
+        final favoriteColor = data['favoriteColor'];
+
+        if (gender == null || region == null || favoriteColor == null) {
+          needsOnboarding = true;
+        }
       } // database 에 name 을 가져와 userName 변수에 저장, 만약 name 필드가 없다면 '사용자'로 기본값 설정
 
       if (mounted) {
         // mounted는 Navigator, ScaffoldMessenger 등 context 사용하는 작업을 할때 필수!, 현재 위치에 잘 머물러 있는지 체크해주는 함수이다!
-        // 홈 화면으로 이동, 이동중 사용자가 화면을 끄면 오류 발생, 이를 mounted 로 방지
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => HomeScreen(userName: userName),
-          ),
-        );
+        // 온보딩이 필요하면 환영 화면으로, 아니면 홈 화면으로 이동
+        if (needsOnboarding) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => WelcomeOnboardingScreen(userName: userName),
+            ),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HomeScreen(userName: userName),
+            ),
+          );
+        }
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage;

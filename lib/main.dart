@@ -28,6 +28,7 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.white,
       ),
       home: LoginScreen(),
+      routes: {'/login': (context) => LoginScreen()},
       debugShowCheckedModeBanner: false,
     );
   }

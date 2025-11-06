@@ -48,12 +48,28 @@ app.*.map.json
 
 # 환경 변수 파일을 무시하도록 설정
 .env
+*.env
+**/.env
+**/.env.*
+.env.*
+
+# Common secrets & credentials (never commit)
+# Android keystore & signing
+android/key.properties
+**/*.keystore
+**/*.keystore.properties
+**/*.jks
+
+# Firebase service accounts (if any are downloaded)
+**/*serviceAccount*.json
+**/firebase-adminsdk-*.json
+**/*-adminsdk-*.json
 
 # Firebase config files (optional to ignore; if ignored, teammates must regenerate locally)
 # Note: Firebase API keys are not secrets, but you can ignore these files if you prefer not to commit them.
 /lib/firebase_options.dart
 /android/app/google-services.json
-#/ios/Runner/GoogleService-Info.plist
+/ios/Runner/GoogleService-Info.plist
 
 # Flutter ephemeral build outputs (can contain plugin example configs)
 **/flutter/ephemeral/

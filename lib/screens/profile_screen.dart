@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io';
 import 'profile_edit_screen.dart';
 
@@ -25,28 +27,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadProfile();
   }
 
-  // 프로필 정보 불러오기
+  // 프로필 정보 불러오기 (Firestore에서)
   Future<void> _loadProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    // SharedPreferences에 저장된 이름이 있으면 그걸 사용, 없으면 로그인 시 받은 이름 사용, 그것도 없으면 '사용자'
-    final savedName = prefs.getString('user_name');
-    setState(() {
-      _userName = savedName ?? widget.userName ?? '사용자';
-      _profileImagePath = prefs.getString('profile_image_path');
-    });
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
 
-    // 처음 로그인한 경우 SharedPreferences에 저장
-    if (savedName == null && widget.userName != null) {
-      _saveProfile();
+      // Firestore에서 사용자 정보 가져오기
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        setState(() {
+          _userName = data['userName'] as String? ?? widget.userName ?? '사용자';
+        });
+      } else {
+        // Firestore에 문서가 없으면 로그인 시 받은 이름으로 초기화
+        setState(() {
+          _userName = widget.userName ?? '사용자';
+        });
+        // Firestore에 초기 데이터 저장
+        await _saveProfile();
+      }
+
+      // 프로필 이미지는 여전히 로컬에 저장 (SharedPreferences)
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _profileImagePath = prefs.getString('profile_image_path');
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('프로필 정보를 불러오는 중 오류가 발생했습니다'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-  // 프로필 정보 저장하기
+  // 프로필 정보 저장하기 (Firestore에)
   Future<void> _saveProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_name', _userName);
-    if (_profileImagePath != null) {
-      await prefs.setString('profile_image_path', _profileImagePath!);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Firestore에 이름 저장 (merge: true로 다른 필드는 유지)
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'userName': _userName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // 프로필 이미지는 로컬에 저장
+      if (_profileImagePath != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('profile_image_path', _profileImagePath!);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('프로필 정보를 저장하는 중 오류가 발생했습니다'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -319,10 +368,127 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 20),
+              // 로그아웃 버튼
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _logout,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red[50],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.logout,
+                              color: Colors.red[600],
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              '로그아웃',
+                              style: GoogleFonts.notoSans(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.red[600],
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            size: 20,
+                            color: Colors.red[400],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  // 로그아웃 함수
+  Future<void> _logout() async {
+    // 확인 다이얼로그 표시
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          '로그아웃',
+          style: GoogleFonts.notoSans(fontWeight: FontWeight.bold),
+        ),
+        content: Text('정말 로그아웃 하시겠습니까?', style: GoogleFonts.notoSans()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              '취소',
+              style: GoogleFonts.notoSans(color: Colors.grey[600]),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              '로그아웃',
+              style: GoogleFonts.notoSans(
+                color: Colors.red[600],
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    // 사용자가 확인을 누른 경우
+    if (confirmed == true) {
+      try {
+        // Firebase 로그아웃
+        await FirebaseAuth.instance.signOut();
+
+        // 로그인 화면으로 이동 (모든 이전 화면 제거)
+        if (mounted) {
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/login', (route) => false);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('로그아웃 중 오류가 발생했습니다'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 }

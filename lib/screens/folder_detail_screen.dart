@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FolderDetailScreen extends StatefulWidget {
-  final int folderIndex;
+  final String folderId;
   final String folderName;
-  final VoidCallback onUpdate;
 
   const FolderDetailScreen({
     super.key,
-    required this.folderIndex,
+    required this.folderId,
     required this.folderName,
-    required this.onUpdate,
   });
 
   @override
@@ -21,7 +19,7 @@ class FolderDetailScreen extends StatefulWidget {
 
 class _FolderDetailScreenState extends State<FolderDetailScreen> {
   List<Map<String, dynamic>> _files = [];
-  List<Map<String, dynamic>> _allFolders = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -29,26 +27,74 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     _loadFiles();
   }
 
-  // 파일 데이터 불러오기
+  // Firestore에서 파일 데이터 불러오기
   Future<void> _loadFiles() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? foldersData = prefs.getString('folders');
-    if (foldersData != null) {
-      _allFolders = List<Map<String, dynamic>>.from(json.decode(foldersData));
-      setState(() {
-        _files = List<Map<String, dynamic>>.from(
-          _allFolders[widget.folderIndex]['files'],
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('folders')
+          .doc(widget.folderId)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data();
+        setState(() {
+          _files = List<Map<String, dynamic>>.from(data?['files'] ?? []);
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('파일을 불러오는 중 오류가 발생했습니다'),
+            backgroundColor: Colors.red,
+          ),
         );
+      }
+      setState(() {
+        _isLoading = false;
       });
     }
   }
 
-  // 파일 데이터 저장하기
+  // Firestore에 파일 데이터 저장하기
   Future<void> _saveFiles() async {
-    _allFolders[widget.folderIndex]['files'] = _files;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('folders', json.encode(_allFolders));
-    widget.onUpdate(); // 부모 화면 업데이트
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        return;
+      }
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('folders')
+          .doc(widget.folderId)
+          .update({'files': _files, 'updatedAt': FieldValue.serverTimestamp()});
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('파일 저장 중 오류가 발생했습니다'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // 새 파일 생성 다이얼로그
@@ -159,7 +205,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.brown[800]),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context, true),
         ),
         title: Text(
           widget.folderName,
@@ -186,7 +232,11 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          child: _files.isEmpty
+          child: _isLoading
+              ? Center(
+                  child: CircularProgressIndicator(color: Colors.brown[600]),
+                )
+              : _files.isEmpty
               ? Center(
                   child: Text(
                     '파일이 없습니다\n하단 버튼을 눌러 파일을 만드세요',
@@ -253,10 +303,24 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                             color: Colors.brown[400],
                           ),
                         ),
-                        trailing: Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                          color: Colors.brown[400],
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: Colors.red[400],
+                                size: 20,
+                              ),
+                              onPressed: () => _deleteFile(index),
+                              tooltip: '파일 삭제',
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16,
+                              color: Colors.brown[400],
+                            ),
+                          ],
                         ),
                         onTap: () async {
                           await Navigator.push(
@@ -275,7 +339,6 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                             ),
                           );
                         },
-                        onLongPress: () => _deleteFile(index),
                       ),
                     );
                   },

@@ -7,6 +7,9 @@ import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/weather_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String userName;
@@ -18,15 +21,13 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final TextEditingController _messageController =
-      TextEditingController(); // 사용자 입력 텍스트
-  final List<Map<String, dynamic>> _messages = []; // AI와의 대화 기록 저장
-  final ScrollController _scrollController =
-      ScrollController(); // 채팅시 스크롤 내릴 수 있게
-  final ImagePicker _picker = ImagePicker(); // 갤러리에서 이미지 가져옴
+  final TextEditingController _messageController = TextEditingController();
+  final List<Map<String, dynamic>> _messages = [];
+  final ScrollController _scrollController = ScrollController();
+  final ImagePicker _picker = ImagePicker();
 
   late GenerativeModel _model;
-  late ChatSession _chatSession; // 이전 대화 내용 기억하게 해줌
+  late ChatSession _chatSession;
   bool _isLoading = false;
   bool _isInitialized = false;
 
@@ -34,10 +35,33 @@ class _ChatScreenState extends State<ChatScreen> {
   XFile? _selectedImage;
   Uint8List? _selectedImageBytes;
 
+  // 사용자 컨텍스트 (Firestore)
+  String? _userRegion;
+
   @override
   void initState() {
     super.initState();
     _initializeAI();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        setState(() {
+          _userRegion = (data['region'] as String?)?.trim();
+        });
+      }
+    } catch (e) {
+      developer.log('사용자 프로필 로드 실패: $e', name: 'ChatScreen');
+    }
   }
 
   Future<void> _initializeAI() async {
@@ -85,11 +109,37 @@ class _ChatScreenState extends State<ChatScreen> {
             apiKey: apiKey,
             systemInstruction: Content.text(
               // 핵심, 시스템 프롬프트, AI에게 하는 지시사항
-              '당신은 사용자가 1년에 10억을 주고 고용한 최고의 비서야 '
-              '사용자가 텍스트를 보내고 이미지도 같이 보낼 수 있는데 그때마다 뛰어난 비서답게 통찰력을 보여서 질문에 알맞게 답변해야해'
-              '너무 길면 사용자가 읽기 힘들어하니까 항상 최대한 간결하고 뛰어난 정리와 핵심을 파악한 답변을해줘'
-              '사용자한테 아첨하는 태도는 하지말고 평소에는 친절하지만 사용자가 잘못된 정보를 물어보면 제대로 된 정보를 알려줘'
-              '너가 답변을 제대로 하고, 사용자가 만족을 하면 10억을 보너스로 더 받을 수 있어',
+              '''
+          ## 1. 페르소나 (Persona)
+          당신은 "StyleAI" (또는 앱 이름) 소속의 AI 수석 스타일리스트입니다. 당신은 패션에 대한 깊은 전문 지식과 트렌드를 꿰뚫는 안목을 가졌으며, 사용자의 스타일을 진심으로 응원하는 친근하고 예리한 멘토입니다. 당신의 목표는 비판이 아닌, 사용자가 자신의 매력을 발견하고 패션 자신감을 높이도록 돕는 것입니다.
+
+          ## 2. 핵심 분석 기준 (Internal Analysis Core)
+          사용자가 이미지를 업로드하면, 당신은 **항상 내부적으로** 다음 7가지 상세 항목을 기준으로 심층 분석을 완료해야 합니다. 이 분석은 당신의 모든 답변의 "근거 자료"가 됩니다.
+
+          1.  **전체적인 인상**: 첫인상과 스타일 방향성 (예: 미니멀, 스트릿, 아메카지)
+          2.  **색상 조합**: 메인/보조/포인트 색상의 조화, 톤 매칭
+          3.  **핏과 실루엣**: 아이템의 핏과 사용자의 체형 간의 균형감
+          4.  **TPO 적합성**: 해당 착장이 어울리는 시간, 장소, 상황
+          5.  **스타일링 강점**: 매우 잘한 포인트 (구체적으로)
+          6.  **개선 가능점**: 아쉽거나 보완하면 좋을 포인트 (구체적으로)
+          7.  **종합 점수**: 10점 만점 기준의 객관적인 점수
+
+          ## 3. 응답 모드 규칙 (Response Mode Rules)
+          당신의 답변 방식은 사용자의 요청에 따라 두 가지 모드로 엄격하게 나뉩니다.
+
+          ### 모드 A: 이미지 포함 첫 응답 (요약 모드)
+          * 사용자가 이미지를 포함하여 메시지를 보내면, 당신은 **[2. 핵심 분석 기준]**에 따라 7가지 항목을 **내부적으로만** 분석합니다.
+          * 그 후, 사용자의 프롬프트에 포함된 "첫 응답 지시사항" 또는 "요약 형식" (예: 4문단 요약)을 **반드시** 따릅니다.
+          * **절대** 첫 응답에 위 7가지 상세 항목(예: "## 1. 전체적인 인상")을 그대로 노출하지 마세요. 오직 요청받은 요약 형식만 사용합니다.
+
+          ### 모드 B: 이미지 없는 후속 질문 (상세 모드)
+          * 사용자가 **이미지 없이** "더 자세히 알려줘", "왜 점수가 이래?", "개선점이 뭐야?" 등 이전 분석에 대한 후속 질문을 하면, 이 모드가 활성화됩니다.
+          * 이때 비로소 **[2. 핵심 분석 기준]**의 7가지 항목 중 사용자가 궁금해하는 부분을(또는 전체를) **상세하고 전문적으로** 설명합니다. "## 🎨 색상 조합"과 같은 마크다운 헤더를 사용하여 가독성을 높여 설명할 수 있습니다.
+
+          ## 4. 예외 처리
+          * **텍스트 전용 쿼리**: 이미지를 동반하지 않은 *새로운* 패션 질문(예: "올해 유행하는 신발은?")에는 [모드 B]를 사용하지 않고, 전문가로서 간결하게 답변합니다.
+          * **무관한 이미지**: 패션과 무관한 사진(음식, 풍경)에는 "저는 패션 전문 스타일리스트입니다! 고객님의 멋진 착장 사진을 보여주시겠어요?"라고 응답합니다.
+          ''',
             ),
           );
 
@@ -104,7 +154,8 @@ class _ChatScreenState extends State<ChatScreen> {
             setState(() {
               _isInitialized = true;
               _messages.add({
-                'text': '안녕하세요! 저는 Gemini AI입니다. 무엇을 도와드릴까요?',
+                'text':
+                    '안녕하세요, ${widget.userName}님! Gemini AI 입니다.\n오늘의 패션은 어떠신가요?! ✨',
                 'isUser': false,
               });
             });
@@ -212,14 +263,76 @@ class _ChatScreenState extends State<ChatScreen> {
       late final GenerateContentResponse response;
 
       if (hasImage && imageBytes != null) {
-        // 이미지와 텍스트 함께 전송
-        final prompt = userMessage.isEmpty
-            ? '이 이미지를 자세히 분석해주세요. 한국어로 친근하게 설명해주세요.'
-            : userMessage;
+        // 이미지와 텍스트 함께 전송 - 패션 평가 프롬프트 + 지역 날씨 컨텍스트
+        String weatherContext = '';
+        // 지역이 아직 로드되지 않았다면 즉시 한 번 더 시도 (빠른 사용자 입력 대비)
+        String? region = _userRegion;
+        if (region == null || region.isEmpty) {
+          try {
+            final user = FirebaseAuth.instance.currentUser;
+            if (user != null) {
+              final doc = await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .get();
+              final data = doc.data();
+              region = (data?['region'] as String?)?.trim();
+              if (region != null && region.isNotEmpty) {
+                setState(() => _userRegion = region);
+              }
+            }
+          } catch (_) {}
+        }
 
-        response = await _model.generateContent([
+        if (region != null && region.isNotEmpty) {
+          final wd = await WeatherService.fetchCurrent(region);
+          if (wd != null) {
+            final advice = WeatherService.buildAdvice(region, wd);
+            weatherContext = '날씨 참고: $advice\n\n';
+          } else {
+            developer.log(
+              '날씨 정보를 가져오지 못했습니다 (region=$region)',
+              name: 'ChatScreen',
+            );
+          }
+        } else {
+          developer.log('사용자 지역 정보가 비어있습니다. 날씨 컨텍스트 생략', name: 'ChatScreen');
+        }
+
+        final baseEvaluation =
+            '''
+        ## 첫 응답 지시사항: 4문단 핵심 요약
+        당신은 이 이미지에 대한 7가지 항목(인상, 색상, 핏, TPO, 장단점, 제안, 점수)의 전체 분석을 이미 내부적으로 완료했습니다.
+        그 분석 결과를 바탕으로, **정확히 다음 4문단 구조**로만 첫 응답을 작성하세요.
+        (글머리 기호, 번호, 이모지, 마크다운 헤더 없이 오직 줄바꿈으로만 문단을 구분합니다.)
+
+        [첫 번째 문단: 1문장]
+        "10점 만점에 [숫자]점입니다."로 시작하고, 그 이유(총평)를 한 줄로 요약합니다.
+
+        [두 번째 문단: 2문장]
+        위 점수에 대한 핵심 근거 2가지를 서술합니다. (예: 가장 칭찬할 점, 색상 조합의 특징, 핏의 장점 등)
+
+        [세 번째 문단: 1-2문장]
+        스타일을 더 돋보이게 할 수 있는 가장 중요하고 실용적인 개선 제안 1가지를 제시합니다. (만약 9-10점으로 완벽에 가깝다면, "지금의 스타일을 멋지게 유지하세요." 또는 "이미 훌륭한 룩입니다." 등으로 대체합니다.)
+
+        [네 번째 문단: 1-2문장]
+        (사용자 지역: ${region ?? '알 수 없음'}, 제공된 날씨 정보: $weatherContext)
+        이 날씨 정보를 바탕으로 "오늘 **$region** 날씨엔 ~" 형태로 사용자의 지역명을 반드시 포함하여 실용적인 조언 한 문장을 작성합니다. 만약 비가 올 예정이라면 꼭 우산을 챙기라는 조언을 포함하세요. 마지막에 "좋은 하루 보내세요." 또는 "멋진 하루 되세요."와 같은 긍정적이고 따뜻한 마무리 인사를 합니다.
+
+        ## 주의사항
+        * 절대 4문단을 초과하지 마세요.
+        * 브랜드나 가격을 추측하지 마세요.
+        * 사용자가 "더 자세히"라고 후속 질문을 하면, 그때 '시스템 지침'의 [모드 B]를 활성화하여 상세 분석을 제공하세요.
+    ''';
+
+        final prompt = userMessage.isEmpty
+            ? '$weatherContext이 사진 속 패션을 전문적으로 분석하고, 첫 응답은 짧고 명확하게 제공해주세요.\n\n$baseEvaluation'
+            : '$weatherContext이 패션 사진을 분석해주세요.\n\n사용자 메시지: $userMessage\n\n$baseEvaluation';
+
+        // 세션에 포함시켜 이후 대화가 이 평가를 기억하도록 처리
+        response = await _chatSession.sendMessage(
           Content.multi([TextPart(prompt), DataPart('image/jpeg', imageBytes)]),
-        ]);
+        );
       } else {
         // 텍스트만 전송
         response = await _chatSession.sendMessage(Content.text(userMessage));
@@ -314,6 +427,7 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
+            // 남아있는 부분을 꽉 채우기 위해서 , 아래에서는 필요한 만큼만 따로 차지할 예정!
             // 채팅창 부분
             child: Container(
               margin: const EdgeInsets.all(20),
@@ -384,7 +498,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                       );
                     }
-
+                    // 아직 itemBuilder 가 메시지 범위를 벗어나지 않도록 처리, 박스를 각각에 경우에 맞게 그리기!
                     final message = _messages[index];
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -585,7 +699,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: const Color(0xFF432C1C),
                         ),
                         decoration: InputDecoration(
-                          hintText: !_isInitialized
+                          hintText:
+                              !_isInitialized // 중첩 if문 느낌
                               ? 'AI 초기화 중...'
                               : _isLoading
                               ? 'AI가 응답중...'

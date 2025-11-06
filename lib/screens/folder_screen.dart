@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'folder_detail_screen.dart';
 
 class FolderScreen extends StatefulWidget {
@@ -13,6 +13,7 @@ class FolderScreen extends StatefulWidget {
 
 class _FolderScreenState extends State<FolderScreen> {
   List<Map<String, dynamic>> _folders = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -20,29 +21,122 @@ class _FolderScreenState extends State<FolderScreen> {
     _loadFolders();
   }
 
-  // 폴더 데이터 불러오기
+  // Firestore에서 폴더 데이터 불러오기
   Future<void> _loadFolders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? foldersData = prefs.getString('folders');
-    if (foldersData != null) {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('folders')
+          .orderBy('createdAt', descending: false)
+          .get();
+
+      if (doc.docs.isEmpty) {
+        // 초기 Diary 폴더 생성
+        await _createInitialFolder();
+      } else {
+        setState(() {
+          _folders = doc.docs.map((doc) {
+            final data = doc.data();
+            return {
+              'id': doc.id,
+              'name': data['name'],
+              'files': data['files'] ?? [],
+              'createdAt': data['createdAt'],
+            };
+          }).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('폴더를 불러오는 중 오류가 발생했습니다'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       setState(() {
-        _folders = List<Map<String, dynamic>>.from(json.decode(foldersData));
+        _isLoading = false;
       });
-    } else {
-      // 초기 Diary 폴더 생성
-      setState(() {
-        _folders = [
-          {'name': 'Diary', 'files': []},
-        ];
-      });
-      _saveFolders();
     }
   }
 
-  // 폴더 데이터 저장하기
-  Future<void> _saveFolders() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('folders', json.encode(_folders));
+  // 초기 Diary 폴더 생성
+  Future<void> _createInitialFolder() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return;
+    }
+
+    final docRef = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('folders')
+        .add({
+          'name': 'Diary',
+          'files': [],
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+    setState(() {
+      _folders = [
+        {
+          'id': docRef.id,
+          'name': 'Diary',
+          'files': [],
+          'createdAt': DateTime.now(),
+        },
+      ];
+      _isLoading = false;
+    });
+  }
+
+  // Firestore에 새 폴더 저장하기
+  Future<void> _saveFolder(String folderName) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        return;
+      }
+
+      final docRef = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('folders')
+          .add({
+            'name': folderName,
+            'files': [],
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+
+      setState(() {
+        _folders.add({
+          'id': docRef.id,
+          'name': folderName,
+          'files': [],
+          'createdAt': DateTime.now(),
+        });
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('폴더 생성 중 오류가 발생했습니다'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // 새 폴더 생성 다이얼로그
@@ -84,10 +178,7 @@ class _FolderScreenState extends State<FolderScreen> {
             TextButton(
               onPressed: () {
                 if (textController.text.isNotEmpty) {
-                  setState(() {
-                    _folders.add({'name': textController.text, 'files': []});
-                    _saveFolders();
-                  });
+                  _saveFolder(textController.text);
                   Navigator.pop(context);
                 }
               },
@@ -100,10 +191,10 @@ class _FolderScreenState extends State<FolderScreen> {
   }
 
   // 폴더 삭제
-  void _deleteFolder(int index) {
-    showDialog(
+  void _deleteFolder(int index) async {
+    final shouldDelete = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
@@ -121,23 +212,47 @@ class _FolderScreenState extends State<FolderScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: Text('취소', style: TextStyle(color: Colors.brown[400])),
             ),
             TextButton(
-              onPressed: () {
-                setState(() {
-                  _folders.removeAt(index);
-                  _saveFolders();
-                });
-                Navigator.pop(context);
-              },
+              onPressed: () => Navigator.pop(dialogContext, true),
               child: Text('삭제', style: TextStyle(color: Colors.red[600])),
             ),
           ],
         );
       },
     );
+
+    if (shouldDelete == true) {
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          final folderId = _folders[index]['id'];
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('folders')
+              .doc(folderId)
+              .delete();
+
+          if (mounted) {
+            setState(() {
+              _folders.removeAt(index);
+            });
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('폴더 삭제 중 오류가 발생했습니다'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -197,7 +312,13 @@ class _FolderScreenState extends State<FolderScreen> {
                 ),
               ),
               Expanded(
-                child: _folders.isEmpty
+                child: _isLoading
+                    ? Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.brown[600],
+                        ),
+                      )
+                    : _folders.isEmpty
                     ? Center(
                         child: Text(
                           '폴더가 없습니다',
@@ -265,6 +386,15 @@ class _FolderScreenState extends State<FolderScreen> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.red[400],
+                                      size: 20,
+                                    ),
+                                    onPressed: () => _deleteFolder(index),
+                                    tooltip: '폴더 삭제',
+                                  ),
                                   Icon(
                                     Icons.arrow_forward_ios,
                                     size: 16,
@@ -272,21 +402,21 @@ class _FolderScreenState extends State<FolderScreen> {
                                   ),
                                 ],
                               ),
-                              onTap: () {
-                                Navigator.push(
+                              onTap: () async {
+                                final result = await Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => FolderDetailScreen(
-                                      folderIndex: index,
+                                      folderId: folder['id'],
                                       folderName: folder['name'],
-                                      onUpdate: () {
-                                        _loadFolders();
-                                      },
                                     ),
                                   ),
                                 );
+                                // 돌아왔을 때 폴더 목록 새로고침
+                                if (result == true && mounted) {
+                                  _loadFolders();
+                                }
                               },
-                              onLongPress: () => _deleteFolder(index),
                             ),
                           );
                         },
