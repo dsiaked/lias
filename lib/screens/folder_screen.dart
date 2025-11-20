@@ -60,8 +60,9 @@ class _FolderScreenState extends State<FolderScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('폴더를 불러오는 중 오류가 발생했습니다'),
+            content: Text('폴더를 불러오는 중 오류가 발생했습니다: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
           ),
         );
       }
@@ -106,6 +107,14 @@ class _FolderScreenState extends State<FolderScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('로그인이 필요합니다'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
         return;
       }
 
@@ -127,12 +136,23 @@ class _FolderScreenState extends State<FolderScreen> {
           'createdAt': DateTime.now(),
         });
       });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('폴더가 생성되었습니다'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('폴더 생성 중 오류가 발생했습니다'),
+            content: Text('폴더 생성 중 오류가 발생했습니다: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
           ),
         );
       }
