@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io';
 import 'profile_edit_screen.dart';
+import '../services/weather_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userName; // 로그인 시 받은 사용자 이름 (nullable로 안전하게 처리)
@@ -20,11 +21,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _userName = '사용자';
   String? _profileImagePath;
   final ImagePicker _picker = ImagePicker();
+  String? _userRegion;
+  WeatherData? _weatherData;
+  bool _isLoadingWeather = true;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
+    _loadWeather();
+  }
+
+  // 날씨 정보 불러오기
+  Future<void> _loadWeather() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        final region = (data['region'] as String?)?.trim();
+
+        if (region != null && region.isNotEmpty) {
+          final weather = await WeatherService.fetchCurrent(region);
+          if (mounted) {
+            setState(() {
+              _userRegion = region;
+              _weatherData = weather;
+              _isLoadingWeather = false;
+            });
+          }
+        } else {
+          if (mounted) {
+            setState(() {
+              _isLoadingWeather = false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingWeather = false;
+        });
+      }
+    }
   }
 
   // 프로필 정보 불러오기 (Firestore에서)
@@ -369,6 +415,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+
+              // 날씨 정보
+              if (!_isLoadingWeather &&
+                  _weatherData != null &&
+                  _userRegion != null)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.blue[100]!, Colors.blue[50]!],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          _weatherData!.main.toLowerCase().contains('rain')
+                              ? Icons.water_drop
+                              : _weatherData!.main.toLowerCase().contains(
+                                  'snow',
+                                )
+                              ? Icons.ac_unit
+                              : _weatherData!.main.toLowerCase().contains(
+                                  'cloud',
+                                )
+                              ? Icons.cloud
+                              : Icons.wb_sunny,
+                          color: Colors.blue[700],
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _userRegion!,
+                              style: GoogleFonts.notoSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blue[900],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _weatherData!.description,
+                              style: GoogleFonts.notoSans(
+                                fontSize: 14,
+                                color: Colors.blue[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        '${_weatherData!.tempC.toStringAsFixed(1)}°C',
+                        style: GoogleFonts.notoSans(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[900],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               // 로그아웃 버튼
               Container(
                 width: double.infinity,
