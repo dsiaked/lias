@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 class CalendarScreen extends StatefulWidget {
-  const CalendarScreen({super.key});
+  final String userName;
+
+  const CalendarScreen({super.key, required this.userName});
 
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
@@ -214,7 +216,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         backgroundColor: const Color(0xFFFAF8F0),
         elevation: 0,
         title: Text(
-          'Calendar',
+          '${widget.userName}\'s Calendar',
           style: GoogleFonts.pacifico(
             fontSize: 28,
             color: const Color(0xFF432C1C),
