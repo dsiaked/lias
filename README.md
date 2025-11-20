@@ -285,9 +285,10 @@ Future<void> _sendImageWithText(File imageFile, String userText) async {
         .doc(user.uid)
         .get();
     region = doc.data()?['region'];
-  }
+  } 
+  // 이 코드를 통해 region 을 불러옵니다
   
-  // 2. 날씨 조회
+  // 2. 불러온 region 을 통해 weather_service 에 있는 클래스 내부에 함수를 호출해 날씨 정보를 받아옵니다
   String weatherContext = '';
   if (region != null) {
     final weatherData = await WeatherService.fetchCurrent(region);
@@ -299,9 +300,6 @@ Future<void> _sendImageWithText(File imageFile, String userText) async {
   // 3. 프롬프트 생성
   final prompt = '''
 $weatherContext이 패션 사진을 분석해주세요.
-(사용자 지역: $region)
-"오늘 **$region** 날씨엔 ~" 형태로 작성...
-''';
   
   // 4. 이미지 + 텍스트 전송
   final imageBytes = await imageFile.readAsBytes();
@@ -316,13 +314,6 @@ $weatherContext이 패션 사진을 분석해주세요.
     _messages.add(ChatMessage(text: response.text, isUser: false));
   });
 }
-```
-
-**핵심**: 
-1. Firestore에서 사용자 지역 조회
-2. OpenWeather API로 실시간 날씨 조회
-3. 날씨 정보를 프롬프트에 주입
-4. 이미지와 텍스트를 세션에 전송하여 컨텍스트 유지
 
 ---
 
@@ -358,7 +349,7 @@ static Future<WeatherData?> fetchCurrent(String region) async {
 }
 ```
 
-**핵심**: 3단계 fallback으로 한글 지역명도 정확하게 처리합니다.
+**핵심**: 이후 try-catch 를 통해 3단계 fallback으로 한글 지역명도 정확하게 처리합니다.
 
 ---
 
@@ -367,20 +358,8 @@ static Future<WeatherData?> fetchCurrent(String region) async {
 static String buildAdvice(String region, WeatherData wd) {
   final t = wd.temperature;
   String comfort;
-  
-  if (t >= 28) {
-    comfort = '꽤 덥습니다. 통기성 좋은 소재와 밝은 톤을 추천해요.';
-  } else if (t >= 23) {
-    comfort = '약간 덥습니다. 반소매나 가벼운 아우터면 충분해요.';
-  } else if (t >= 18) {
-    comfort = '선선합니다. 가벼운 니트나 얇은 아우터가 좋아요.';
-  } else if (t >= 12) {
-    comfort = '쌀쌀합니다. 가벼운 코트나 재킷이 필요해요.';
-  } else if (t >= 5) {
-    comfort = '춥습니다. 보온성 있는 아우터를 꼭 챙기세요.';
-  } else {
-    comfort = '매우 춥습니다. 두꺼운 코트와 보온 액세서리가 필수예요.';
-  }
+
+  ~~~
   
   final rainNote = wd.willRain ? ' 비 소식이 있어요. 우산을 꼭 챙겨주세요.' : '';
   

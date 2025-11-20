@@ -18,12 +18,13 @@ class WeatherData {
 }
 
 class WeatherService {
+  // 총 3개의 도우미 함수, 추가로 try - catch 를 사용한 3개의 fallback 시도
   static const _baseUrl = 'https://api.openweathermap.org/data/2.5/weather';
   static const _geoUrl = 'https://api.openweathermap.org/geo/1.0/direct';
 
   // Fetch current weather by city/region name
   static Future<WeatherData?> fetchCurrent(
-    String region, {
+    String region, { // 매개변수, chat_screen.dart 에서 호출할 때 지역 이름 전달을 했음
     Duration timeout = const Duration(seconds: 4),
   }) async {
     final apiKey = dotenv.env['OPENWEATHER_API_KEY'];
@@ -31,6 +32,7 @@ class WeatherService {
 
     // Helper to parse weather JSON
     WeatherData? parse(Map<String, dynamic> data) {
+      // 번역기, API가 받아온 data 값을 분석, 번역
       final weatherList = (data['weather'] as List<dynamic>?);
       final main = data['main'] as Map<String, dynamic>?;
       if (weatherList == null || weatherList.isEmpty || main == null) {
@@ -56,6 +58,7 @@ class WeatherService {
     }
 
     Future<WeatherData?> byCity(String q) async {
+      // 도시 이름으로 날씨를 요청
       final uri = Uri.parse(
         '$_baseUrl?q=${Uri.encodeComponent(q)}&appid=$apiKey&units=metric&lang=kr',
       );
@@ -66,6 +69,7 @@ class WeatherService {
     }
 
     Future<WeatherData?> byLatLon(double lat, double lon) async {
+      // 도시 이름 대신 위도와 경도
       final uri = Uri.parse(
         '$_baseUrl?lat=$lat&lon=$lon&appid=$apiKey&units=metric&lang=kr',
       );
@@ -113,7 +117,7 @@ class WeatherService {
     }
   }
 
-  // Build a short, friendly fashion-oriented advice string
+  // fetchCurrent 로 받아온 정보를 바탕으로 사용자에게 보여줄 문자열 생성
   static String buildAdvice(String region, WeatherData wd) {
     final t = wd.tempC;
     String comfort;
