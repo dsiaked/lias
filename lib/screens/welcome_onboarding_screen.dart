@@ -106,17 +106,56 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                       Center(
                         child: Column(
                           children: [
-                            Icon(
-                              Icons.waving_hand,
-                              size: 60,
-                              color: Colors.amber[700],
+                            // Lias 로고
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 32,
+                                vertical: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.brown[100]!,
+                                    Colors.brown[50]!,
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.brown.withValues(alpha: 0.15),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                'lias',
+                                style: GoogleFonts.pacifico(
+                                  fontSize: 56,
+                                  color: const Color(0xFF432C1C),
+                                  letterSpacing: 2,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.brown.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                      offset: const Offset(2, 2),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 24),
                             Text(
                               '환영합니다!',
-                              style: GoogleFonts.pacifico(
-                                fontSize: 36,
-                                color: const Color(0xFF432C1C),
+                              style: GoogleFonts.notoSans(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.brown[800],
+                                letterSpacing: 0.5,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -124,9 +163,9 @@ class _WelcomeOnboardingScreenState extends State<WelcomeOnboardingScreen> {
                             Text(
                               '${widget.userName}님',
                               style: GoogleFonts.notoSans(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.brown[700],
+                                fontSize: 22,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.brown[600],
                               ),
                             ),
                             const SizedBox(height: 16),
