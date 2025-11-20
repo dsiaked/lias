@@ -232,248 +232,271 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        child: Container(
-          margin: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.brown.withValues(alpha: 0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 성별 선택
-                Text(
-                  '성별',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 16,
+        child: Column(
+          children: [
+            // lias 로고
+            Padding(
+              padding: const EdgeInsets.only(top: 20, bottom: 10),
+              child: Center(
+                child: Text(
+                  'lias',
+                  style: GoogleFonts.pacifico(
+                    fontSize: 42,
+                    color: const Color(0xFF432C1C),
                     fontWeight: FontWeight.bold,
-                    color: Colors.brown[800],
+                    letterSpacing: 2,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Row(
+              ),
+            ),
+
+            Container(
+              margin: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.brown.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedGender = '남자';
-                            _hasChanges = true;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          decoration: BoxDecoration(
-                            color: _selectedGender == '남자'
-                                ? Colors.brown[100]
-                                : Colors.brown[50],
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _selectedGender == '남자'
-                                  ? Colors.brown[400]!
-                                  : Colors.brown.withValues(alpha: 0.1),
-                              width: _selectedGender == '남자' ? 2 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.male,
-                                color: _selectedGender == '남자'
-                                    ? Colors.brown[800]
-                                    : Colors.brown[400],
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '남자',
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 16,
-                                  fontWeight: _selectedGender == '남자'
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  color: _selectedGender == '남자'
-                                      ? Colors.brown[800]
-                                      : Colors.brown[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                    // 성별 선택
+                    Text(
+                      '성별',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.brown[800],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedGender = '여자';
-                            _hasChanges = true;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          decoration: BoxDecoration(
-                            color: _selectedGender == '여자'
-                                ? Colors.brown[100]
-                                : Colors.brown[50],
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _selectedGender == '여자'
-                                  ? Colors.brown[400]!
-                                  : Colors.brown.withValues(alpha: 0.1),
-                              width: _selectedGender == '여자' ? 2 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.female,
-                                color: _selectedGender == '여자'
-                                    ? Colors.brown[800]
-                                    : Colors.brown[400],
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '여자',
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 16,
-                                  fontWeight: _selectedGender == '여자'
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  color: _selectedGender == '여자'
-                                      ? Colors.brown[800]
-                                      : Colors.brown[600],
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedGender = '남자';
+                                _hasChanges = true;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              decoration: BoxDecoration(
+                                color: _selectedGender == '남자'
+                                    ? Colors.brown[100]
+                                    : Colors.brown[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _selectedGender == '남자'
+                                      ? Colors.brown[400]!
+                                      : Colors.brown.withValues(alpha: 0.1),
+                                  width: _selectedGender == '남자' ? 2 : 1,
                                 ),
                               ),
-                            ],
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.male,
+                                    color: _selectedGender == '남자'
+                                        ? Colors.brown[800]
+                                        : Colors.brown[400],
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '남자',
+                                    style: GoogleFonts.notoSans(
+                                      fontSize: 16,
+                                      fontWeight: _selectedGender == '남자'
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: _selectedGender == '남자'
+                                          ? Colors.brown[800]
+                                          : Colors.brown[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedGender = '여자';
+                                _hasChanges = true;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              decoration: BoxDecoration(
+                                color: _selectedGender == '여자'
+                                    ? Colors.brown[100]
+                                    : Colors.brown[50],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _selectedGender == '여자'
+                                      ? Colors.brown[400]!
+                                      : Colors.brown.withValues(alpha: 0.1),
+                                  width: _selectedGender == '여자' ? 2 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.female,
+                                    color: _selectedGender == '여자'
+                                        ? Colors.brown[800]
+                                        : Colors.brown[400],
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '여자',
+                                    style: GoogleFonts.notoSans(
+                                      fontSize: 16,
+                                      fontWeight: _selectedGender == '여자'
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: _selectedGender == '여자'
+                                          ? Colors.brown[800]
+                                          : Colors.brown[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // 사는 지역
+                    Text(
+                      '사는 지역',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.brown[800],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _regionController,
+                      decoration: InputDecoration(
+                        hintText: '예: 서울, 부산, 대구...',
+                        hintStyle: TextStyle(color: Colors.brown[300]),
+                        prefixIcon: Icon(
+                          Icons.location_on,
+                          color: Colors.brown[400],
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.brown.withValues(alpha: 0.1),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.brown[400]!,
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Colors.brown[50],
+                      ),
+                      style: GoogleFonts.notoSans(
+                        fontSize: 16,
+                        color: Colors.brown[800],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // 좋아하는 색깔
+                    Text(
+                      '좋아하는 색깔',
+                      style: GoogleFonts.notoSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.brown[800],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _colorController,
+                      decoration: InputDecoration(
+                        hintText: '예: 파란색, 빨간색, 초록색...',
+                        hintStyle: TextStyle(color: Colors.brown[300]),
+                        prefixIcon: Icon(
+                          Icons.palette,
+                          color: Colors.brown[400],
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.brown.withValues(alpha: 0.1),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.brown[400]!,
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Colors.brown[50],
+                      ),
+                      style: GoogleFonts.notoSans(
+                        fontSize: 16,
+                        color: Colors.brown[800],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // 저장 버튼
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _hasChanges ? _saveUserInfo : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _hasChanges
+                              ? const Color(0xFF432C1C)
+                              : Colors.brown[300],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: _hasChanges ? 2 : 0,
+                        ),
+                        child: Text(
+                          '저장하기',
+                          style: GoogleFonts.notoSans(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-
-                // 사는 지역
-                Text(
-                  '사는 지역',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.brown[800],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _regionController,
-                  decoration: InputDecoration(
-                    hintText: '예: 서울, 부산, 대구...',
-                    hintStyle: TextStyle(color: Colors.brown[300]),
-                    prefixIcon: Icon(
-                      Icons.location_on,
-                      color: Colors.brown[400],
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: Colors.brown.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: Colors.brown[400]!,
-                        width: 2,
-                      ),
-                    ),
-                    filled: true,
-                    fillColor: Colors.brown[50],
-                  ),
-                  style: GoogleFonts.notoSans(
-                    fontSize: 16,
-                    color: Colors.brown[800],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // 좋아하는 색깔
-                Text(
-                  '좋아하는 색깔',
-                  style: GoogleFonts.notoSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.brown[800],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _colorController,
-                  decoration: InputDecoration(
-                    hintText: '예: 파란색, 빨간색, 초록색...',
-                    hintStyle: TextStyle(color: Colors.brown[300]),
-                    prefixIcon: Icon(Icons.palette, color: Colors.brown[400]),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: Colors.brown.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: Colors.brown[400]!,
-                        width: 2,
-                      ),
-                    ),
-                    filled: true,
-                    fillColor: Colors.brown[50],
-                  ),
-                  style: GoogleFonts.notoSans(
-                    fontSize: 16,
-                    color: Colors.brown[800],
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // 저장 버튼
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _hasChanges ? _saveUserInfo : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _hasChanges
-                          ? const Color(0xFF432C1C)
-                          : Colors.brown[300],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: _hasChanges ? 2 : 0,
-                    ),
-                    child: Text(
-                      '저장하기',
-                      style: GoogleFonts.notoSans(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
