@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../firebase_options.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -165,6 +166,272 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } finally {
       // finally : try-catch 구문에서 예외 발생 여부와 상관없이 항상 실행되는 블록
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Google 로그인 처리 함수
+  Future<void> _handleGoogleSignIn() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Google Sign-In 인스턴스 생성
+      final GoogleSignIn googleSignIn = GoogleSignIn(scopes: ['email']);
+
+      // Google 계정 선택 및 로그인
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        // 사용자가 로그인 취소
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // Google 인증 정보 가져오기
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      // Firebase 자격 증명 생성
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Firebase에 로그인
+      UserCredential userCredential = await FirebaseAuth.instance
+          .signInWithCredential(credential);
+
+      // Firestore에서 사용자 정보 확인
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .get();
+
+      String userName = googleUser.displayName ?? '사용자';
+      bool needsOnboarding = false;
+
+      if (!userDoc.exists) {
+        // 처음 Google 로그인하는 사용자 - Firestore에 기본 정보 저장
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .set({
+              'email': googleUser.email,
+              'name': userName,
+              'createdAt': FieldValue.serverTimestamp(),
+              'loginMethod': 'google',
+            });
+        needsOnboarding = true;
+      } else {
+        // 기존 사용자 - 필수 정보 확인
+        final data = userDoc.data() as Map<String, dynamic>;
+        userName = data['name'] ?? userName;
+
+        final gender = data['gender'];
+        final region = data['region'];
+        final favoriteColor = data['favoriteColor'];
+
+        if (gender == null || region == null || favoriteColor == null) {
+          needsOnboarding = true;
+        }
+      }
+
+      if (mounted) {
+        // 온보딩이 필요하면 환영 화면으로, 아니면 홈 화면으로 이동
+        if (needsOnboarding) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => WelcomeOnboardingScreen(userName: userName),
+            ),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HomeScreen(userName: userName),
+            ),
+          );
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+
+      switch (e.code) {
+        case 'account-exists-with-different-credential':
+          errorMessage = '이미 다른 로그인 방법으로 등록된 이메일입니다.';
+          break;
+        case 'invalid-credential':
+          errorMessage = '유효하지 않은 인증 정보입니다.';
+          break;
+        case 'operation-not-allowed':
+          errorMessage =
+              'Google 로그인이 활성화되지 않았습니다.\nFirebase Console에서 활성화해주세요.';
+          break;
+        case 'user-disabled':
+          errorMessage = '비활성화된 계정입니다.';
+          break;
+        default:
+          errorMessage = 'Google 로그인 중 오류가 발생했습니다: ${e.message}';
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage, style: GoogleFonts.notoSans()),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Google 로그인 중 오류가 발생했습니다: $e',
+              style: GoogleFonts.notoSans(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // GitHub 로그인 처리 함수
+  Future<void> _handleGitHubSignIn() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // GitHub OAuth Provider 생성
+      final githubProvider = GithubAuthProvider();
+
+      // Firebase에 GitHub 로그인
+      UserCredential userCredential;
+      if (kIsWeb) {
+        // 웹 환경: 팝업 사용
+        userCredential = await FirebaseAuth.instance.signInWithPopup(
+          githubProvider,
+        );
+      } else {
+        // 모바일: 리다이렉트 사용
+        userCredential = await FirebaseAuth.instance.signInWithProvider(
+          githubProvider,
+        );
+      }
+
+      // Firestore에서 사용자 정보 확인
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .get();
+
+      String userName = userCredential.user?.displayName ?? '사용자';
+      String userEmail = userCredential.user?.email ?? '';
+      bool needsOnboarding = false;
+
+      if (!userDoc.exists) {
+        // 처음 GitHub 로그인하는 사용자
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .set({
+              'email': userEmail,
+              'name': userName,
+              'createdAt': FieldValue.serverTimestamp(),
+              'loginMethod': 'github',
+            });
+        needsOnboarding = true;
+      } else {
+        // 기존 사용자
+        final data = userDoc.data() as Map<String, dynamic>;
+        userName = data['name'] ?? userName;
+
+        final gender = data['gender'];
+        final region = data['region'];
+        final favoriteColor = data['favoriteColor'];
+
+        if (gender == null || region == null || favoriteColor == null) {
+          needsOnboarding = true;
+        }
+      }
+
+      if (mounted) {
+        if (needsOnboarding) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => WelcomeOnboardingScreen(userName: userName),
+            ),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HomeScreen(userName: userName),
+            ),
+          );
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+
+      switch (e.code) {
+        case 'account-exists-with-different-credential':
+          errorMessage = '이미 다른 로그인 방법으로 등록된 이메일입니다.';
+          break;
+        case 'invalid-credential':
+          errorMessage = '유효하지 않은 인증 정보입니다.';
+          break;
+        case 'operation-not-allowed':
+          errorMessage =
+              'GitHub 로그인이 활성화되지 않았습니다.\nFirebase Console에서 활성화해주세요.';
+          break;
+        default:
+          errorMessage = 'GitHub 로그인 중 오류가 발생했습니다: ${e.message}';
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage, style: GoogleFonts.notoSans()),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'GitHub 로그인 중 오류가 발생했습니다: $e',
+              style: GoogleFonts.notoSans(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -490,19 +757,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     _buildSocialLoginButton(
                       icon: FontAwesomeIcons.google,
                       color: Colors.red[400]!,
-                      onPressed: () {},
+                      onPressed: _isLoading ? () {} : _handleGoogleSignIn,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 20),
                     _buildSocialLoginButton(
-                      icon: FontAwesomeIcons.n,
-                      color: const Color(0xFF03C75A),
-                      onPressed: () {},
-                    ),
-                    const SizedBox(width: 12),
-                    _buildSocialLoginButton(
-                      icon: FontAwesomeIcons.instagram,
-                      color: const Color(0xFFE4405F),
-                      onPressed: () {},
+                      icon: FontAwesomeIcons.github,
+                      color: const Color(0xFF24292E),
+                      onPressed: _isLoading ? () {} : _handleGitHubSignIn,
                     ),
                   ],
                 ),
@@ -560,60 +821,42 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
       );
-    } else if (icon == FontAwesomeIcons.n) {
+    } else if (icon == FontAwesomeIcons.github) {
       iconWidget = Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: const Color(0xFF03C75A),
+          color: const Color(0xFF24292E),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF03C75A).withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Center(
-          child: Text(
-            'N',
-            style: GoogleFonts.notoSans(
-              color: Colors.white,
-              fontSize: 30,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
-        ),
-      );
-    } else {
-      iconWidget = Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: const LinearGradient(
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-            colors: [Color(0xFFE4405F), Color(0xFFD92E7F), Color(0xFF9B36B7)],
-            stops: [0.0, 0.5, 1.0],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFE4405F).withValues(alpha: 0.3),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
           ],
         ),
         child: const Center(
-          child: FaIcon(
-            FontAwesomeIcons.instagram,
-            color: Colors.white,
-            size: 30,
-          ),
+          child: FaIcon(FontAwesomeIcons.github, color: Colors.white, size: 28),
         ),
+      );
+    } else {
+      // Default fallback
+      iconWidget = Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Center(child: FaIcon(icon, color: Colors.white, size: 28)),
       );
     }
 
