@@ -180,6 +180,20 @@ class _SignupScreenState extends State<SignupScreen> {
                 children: [
                   const SizedBox(height: 20),
 
+                  // lias 로고
+                  Center(
+                    child: Text(
+                      'lias',
+                      style: GoogleFonts.pacifico(
+                        fontSize: 48,
+                        color: const Color(0xFF432C1C),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
                   // 안내 텍스트
                   Text(
                     '새로운 계정을 만들어주세요',
