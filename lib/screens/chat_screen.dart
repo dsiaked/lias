@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/weather_service.dart';
+import 'chat_history_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String userName;
@@ -38,6 +39,9 @@ class _ChatScreenState extends State<ChatScreen> {
   // 사용자 컨텍스트 (Firestore)
   String? _userRegion;
 
+  // 현재 대화 ID (Firebase 저장용)
+  String? _currentChatId;
+
   @override
   void initState() {
     super.initState();
@@ -65,17 +69,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeAI() async {
-    // Google Generative AI에서 지원하는 모델 목록 (최신 순)
+    // Google Generative AI에서 지원하는 모델 목록
     final modelNames = [
       'gemini-2.5-flash',
       'gemini-1.5-flash',
       'gemini-1.5-pro',
-      'gemini-pro',
     ];
 
     try {
-      // 여러 모델을 시도해봄, 된다면 setState로 _isInitialized true , 채팅 시작
-      // .env 파일에서 API 키 가져오기, env 에 숨겨둠
       final apiKey = dotenv.env['GEMINI_API_KEY'];
 
       developer.log('API 키 로드 시도...', name: 'ChatScreen');
@@ -86,7 +87,6 @@ class _ChatScreenState extends State<ChatScreen> {
         return;
       }
 
-      // API 키의 앞 부분만 로그에 남김 (보안상 전체는 표시하지 않음)
       final maskedApiKey = apiKey.length > 10
           ? '${apiKey.substring(0, 10)}...'
           : '(너무 짧음)';
@@ -99,11 +99,10 @@ class _ChatScreenState extends State<ChatScreen> {
       for (int i = 0; i < modelNames.length; i++) {
         try {
           developer.log(
-            'Google Generative AI 모델 시도: ${modelNames[i]}',
+            'Google Generative AI 모델 시도 ${i + 1}/${modelNames.length}: ${modelNames[i]}',
             name: 'ChatScreen',
           );
 
-          // Google Generative AI 모델 초기화 + 시스템 프롬프트 추가
           _model = GenerativeModel(
             model: modelNames[i],
             apiKey: apiKey,
@@ -151,25 +150,26 @@ class _ChatScreenState extends State<ChatScreen> {
           if (testResponse.text != null) {
             _chatSession = _model.startChat();
 
-            setState(() {
-              _isInitialized = true;
-              _messages.add({
-                'text':
-                    '안녕하세요, ${widget.userName}님! Gemini AI 입니다.\n오늘의 패션은 어떠신가요?! ✨',
-                'isUser': false,
+            if (mounted) {
+              setState(() {
+                _isInitialized = true;
+                _messages.add({
+                  'text':
+                      '안녕하세요, ${widget.userName}님! Gemini AI 입니다.\n오늘의 패션은 어떠신가요?! ✨',
+                  'isUser': false,
+                });
               });
-            });
+            }
 
             developer.log(
               'Google Generative AI 모델이 성공적으로 초기화되었습니다: ${modelNames[i]}',
               name: 'ChatScreen',
             );
-            return; // 성공하면 여기서 종료
+            return; // 성공하면 종료
           }
         } on TimeoutException catch (_) {
           developer.log('모델 ${modelNames[i]} 초기화 타임아웃', name: 'ChatScreen');
           if (i == modelNames.length - 1) {
-            // 마지막 모델도 타임아웃이면 에러 메시지 표시하고 종료
             if (mounted) {
               setState(() {
                 _isInitialized = false;
@@ -185,20 +185,17 @@ class _ChatScreenState extends State<ChatScreen> {
         } catch (e) {
           developer.log('모델 ${modelNames[i]} 실패: $e', name: 'ChatScreen');
           if (i == modelNames.length - 1) {
-            // 모든 모델이 실패한 경우 - 안전하게 처리
             if (mounted) {
               setState(() {
                 _isInitialized = false;
                 _messages.add({
-                  'text':
-                      'AI 모델 연결에 실패했습니다. API 키를 확인해주세요.\n오류: ${e.toString()}',
+                  'text': 'AI 모델 연결에 실패했습니다. 모든 모델 시도 실패.\n오류: ${e.toString()}',
                   'isUser': false,
                 });
               });
             }
             return;
           }
-          // 다음 모델 시도
           continue;
         }
       }
@@ -223,6 +220,120 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _messages.add({'text': message, 'isUser': false});
     });
+  }
+
+  // Firebase에 현재 대화 저장
+  Future<void> _saveCurrentChat() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null || _messages.length <= 1) return; // AI 인사말만 있으면 저장 안함
+
+      // 이미지 경로는 저장하지 않고, 텍스트와 메타데이터만 저장 (용량 최소화)
+      final simplifiedMessages = _messages.map((msg) {
+        return {
+          'text': msg['text'],
+          'isUser': msg['isUser'],
+          'isImage': msg['isImage'] ?? false,
+        };
+      }).toList();
+
+      final chatData = {
+        'messages': simplifiedMessages,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      // createdAt은 새 대화일 때만 설정
+      if (_currentChatId == null) {
+        chatData['createdAt'] = FieldValue.serverTimestamp();
+      }
+
+      if (_currentChatId == null) {
+        // 새 대화 생성
+        final docRef = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('chats')
+            .add(chatData);
+        _currentChatId = docRef.id;
+      } else {
+        // 기존 대화 업데이트
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('chats')
+            .doc(_currentChatId)
+            .set(chatData, SetOptions(merge: true));
+      }
+
+      developer.log('대화 저장 완료: $_currentChatId', name: 'ChatScreen');
+    } catch (e) {
+      developer.log('대화 저장 실패: $e', name: 'ChatScreen');
+
+      // 사용자에게 오류 알림
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('대화 저장 중 오류가 발생했습니다: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  // 저장된 대화 불러오기
+  Future<void> _loadChat(String chatId) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('chats')
+          .doc(chatId)
+          .get();
+
+      if (doc.exists && mounted) {
+        final data = doc.data() as Map<String, dynamic>;
+        final messages = data['messages'] as List? ?? [];
+
+        setState(() {
+          _currentChatId = chatId;
+          _messages.clear();
+          _messages.addAll(
+            messages
+                .map(
+                  (msg) => {
+                    'text': msg['text'],
+                    'isUser': msg['isUser'],
+                    'isImage': msg['isImage'] ?? false,
+                  },
+                )
+                .toList(),
+          );
+        });
+
+        _scrollToBottom();
+        developer.log('대화 로드 완료: $chatId', name: 'ChatScreen');
+      }
+    } catch (e) {
+      developer.log('대화 로드 실패: $e', name: 'ChatScreen');
+    }
+  }
+
+  // 새 대화 시작
+  void _startNewChat() {
+    setState(() {
+      _currentChatId = null;
+      _messages.clear();
+      _messages.add({
+        'text': '안녕하세요, ${widget.userName}님! Gemini AI 입니다.\n오늘의 패션은 어떠신가요?! ✨',
+        'isUser': false,
+      });
+    });
+    _scrollToBottom();
   }
 
   Future<void> _handleSubmitted(String text) async {
@@ -346,6 +457,9 @@ class _ChatScreenState extends State<ChatScreen> {
         });
         _isLoading = false;
       });
+
+      // AI 응답 후 대화 저장
+      await _saveCurrentChat();
     } catch (e) {
       // 오류 처리
       setState(() {
@@ -423,6 +537,76 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          // 새 대화 버튼
+          IconButton(
+            icon: Icon(Icons.add_circle_outline, color: Colors.brown[700]),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  title: Text(
+                    '새 대화',
+                    style: GoogleFonts.notoSans(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.brown[800],
+                    ),
+                  ),
+                  content: Text(
+                    '현재 대화를 저장하고 새 대화를 시작하시겠습니까?',
+                    style: GoogleFonts.notoSans(),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: Text(
+                        '취소',
+                        style: TextStyle(color: Colors.brown[400]),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                        _saveCurrentChat().then((_) => _startNewChat());
+                      },
+                      child: Text(
+                        '새 대화',
+                        style: TextStyle(color: Colors.brown[800]),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          // 대화 기록 버튼
+          IconButton(
+            icon: Icon(Icons.history, color: Colors.brown[700]),
+            onPressed: () async {
+              // 현재 대화를 저장하고 기록 화면으로 이동
+              await _saveCurrentChat();
+
+              if (!context.mounted) return;
+
+              final selectedChatId = await Navigator.push<String>(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ChatHistoryScreen(),
+                ),
+              );
+
+              // 선택된 대화가 있으면 불러오기
+              if (context.mounted &&
+                  selectedChatId != null &&
+                  selectedChatId.isNotEmpty) {
+                await _loadChat(selectedChatId);
+              }
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
