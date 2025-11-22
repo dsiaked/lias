@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _screens = [
       ChatScreen(userName: widget.userName),
-      const CalendarScreen(),
+      CalendarScreen(userName: widget.userName),
       const FolderScreen(),
       ProfileScreen(userName: widget.userName),
     ];
