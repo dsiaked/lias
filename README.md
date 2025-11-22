@@ -124,8 +124,8 @@ LIAS는 이러한 일상적인 고민에 AI 기술을 접목하여, 집 밖을 �
 
 - **Flutter** - Dart Language
 - **Firebase** 
-- Authentication
-- Firebase Database
+-   Authentication
+-   Firebase Database
 
 <p align="center">
   <img src="./screenshots/stackimg.png" width="500" alt="사용된 기술 스택">
