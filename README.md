@@ -39,8 +39,10 @@ LIAS는 이러한 일상적인 고민에 AI 기술을 접목하여, 집 밖을 �
 ### 1. 로그인 / 회원가입
 앱을 실행하면 **로그인 화면**에서 시작합니다. 기본 이메일/비밀번호로 가입하거나 구글, 깃허브 계정으로 로그인합니다.
 
-[로그인 화면](./screenshots/login.png)
-[회원가입](./screenshots/login2.png)
+<p align="center">
+  <img src="./screenshots/login.png" width="300" alt="로그인 화면">
+  <img src="./screenshots/login2.png" width="300" alt="회원가입 화면">
+</p>
 
 ---
 
@@ -52,14 +54,18 @@ LIAS는 이러한 일상적인 고민에 AI 기술을 접목하여, 집 밖을 �
 
 이 정보는 AI가 개인화된 조언을 제공하는 데 사용됩니다. 모든 정보를 입력해야 메인 화면으로 진입할 수 있습니다.
 
-[온보딩 화면](./screenshots/onboarding.png)
+<p align="center">
+  <img src="./screenshots/onboarding.png" width="300" alt="온보딩 화면">
+</p>
 
 ---
 
 ### 3. AI 초기화
 온보딩 완료 후, 백그라운드에서 프롬프트로 학습된 AI 모델이 초기화됩니다.
 
-[채팅 화면](./screenshots/chat.png)
+<p align="center">
+  <img src="./screenshots/chat.png" width="300" alt="채팅 화면">
+</p>
 
 ---
 
@@ -71,9 +77,10 @@ LIAS는 이러한 일상적인 고민에 AI 기술을 접목하여, 집 밖을 �
 - **LIAS (인생 비서)** → 패션 평가 뿐만이 아닌 일상적인 대화도 가능하게 합니다.
 - **날씨 통합** → 온보딩에서 입력받은 사용자 지역의 실시간 날씨를 OpenWeather API로 조회하여 자연스럽게 조언합니다.
 
-[질문](./screenshots/chat2.png)
-
-[대답](./screenshots/chat3.png)
+<p align="center">
+  <img src="./screenshots/chat2.png" width="300" alt="질문">
+  <img src="./screenshots/chat3.png" width="300" alt="대답">
+</p>
 
 - **이전 대화 저장** → 오른쪽 위에 타이머(시계) 버튼을 클릭 할 시 이전 대화를 저장한 스크린으로 이동을 함으로써 언제든지 다시 그 대화로 돌아가서 추가로 대화를 할 수 있습니다.
 
@@ -84,7 +91,9 @@ LIAS는 이러한 일상적인 고민에 AI 기술을 접목하여, 집 밖을 �
 - 패션 아이디어, 코디 계획 등을 기록할 수 있습니다.
 - 아래에는 나중에 이 앱을 상용화 하였을 때에 광고받은 패션을 알맞게 넣어줄 공간이 있으면 좋을거 같아 추가하였습니다.
 
-[캘린더 화면](./screenshots/calender.png)
+<p align="center">
+  <img src="./screenshots/calender.png" width="300" alt="캘린더 화면">
+</p>
 
 ---
 
@@ -93,7 +102,9 @@ LIAS는 이러한 일상적인 고민에 AI 기술을 접목하여, 집 밖을 �
 - 각 폴더 안에 **파일 생성/수정/삭제**
 - 의도 : 일기장으로 활용을 하거나, 필요한 패션 아이템 등을 메모할 수 있게, 또 정말 다양한 메모를 간편하게 할 수 있게 하기 위해 존재합니다.
 
-[폴더 화면](./screenshots/folder.png)
+<p align="center">
+  <img src="./screenshots/folder.png" width="300" alt="폴더 화면">
+</p>
 
 ---
 
@@ -103,7 +114,9 @@ LIAS는 이러한 일상적인 고민에 AI 기술을 접목하여, 집 밖을 �
 - **내 정보 수정**: 성별, 지역, 선호 색상 업데이트
 - **현재 위치에 맞은 날씨 확인하기** : 날씨를 실시간으로 업데이트 함으로써 확인을 할 수 있습니다.
 
-[프로필 화면](./screenshots/profile.png)
+<p align="center">
+  <img src="./screenshots/profile.png" width="300" alt="프로필 화면">
+</p>
 
 ---
 
@@ -114,7 +127,9 @@ LIAS는 이러한 일상적인 고민에 AI 기술을 접목하여, 집 밖을 �
 - Authentication
 - Firebase Database
 
-[사용된 스택](./screenshots/stackimg.png)
+<p align="center">
+  <img src="./screenshots/stackimg.png" width="500" alt="사용된 기술 스택">
+</p>
 
 ---
 
